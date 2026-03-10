@@ -213,19 +213,25 @@ export const AuthProvider = ({ children }) => {
     let response;
     try {
       if (!auth) {
-        console.error("Firebase auth not initialized. Check your .env.frontend file.");
-        alert("Firebase configuration error. Please check console.");
-        return null;
+        alert("Firebase is not configured. Check frontend env values.");
+        return false;
       }
       response = await signInWithPopup(auth, googleProvider);
       if (response && !(response["status"] === 400)) {
+        const credential = GoogleAuthProvider.credentialFromResult(response);
+        const accessToken =
+          credential?.accessToken || response?.user?.accessToken;
+        if (!accessToken) {
+          alert("Google login failed: missing access token.");
+          return false;
+        }
         let logresponse = await fetch(BACKEND + "/api/token/google/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            token: response.user.accessToken,
+            token: accessToken,
           }),
         });
         let data = await readJsonSafely(logresponse);
@@ -236,37 +242,43 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem("authTokens", JSON.stringify(token));
           let usernames_data = await getUsernamesData(token);
           setUserNames(usernames_data);
-          navigate("/");
+          return true;
         } else {
-          console.error("Backend token error:", data);
-          alert(data?.message || "Backend error during login");
+          alert(data?.message || "Google login failed.");
+          return false;
         }
       } else {
-        console.log("Google sign-in was cancelled or failed");
+        return false;
       }
     } catch (error) {
-      console.error("Google login error:", error);
-      alert("Google login failed: " + error.message);
+      console.log(error);
+      alert("Please try logging in again");
+      return false;
     }
-    return response;
   };
   const SignUpWithGoogle = async () => {
     let response;
     try {
       if (!auth) {
-        console.error("Firebase auth not initialized. Check your .env.frontend file.");
-        alert("Firebase configuration error. Please check console.");
-        return null;
+        alert("Firebase is not configured. Check frontend env values.");
+        return false;
       }
       response = await signInWithPopup(auth, googleProvider);
       if (response && !(response["status"] === 400)) {
+        const credential = GoogleAuthProvider.credentialFromResult(response);
+        const accessToken =
+          credential?.accessToken || response?.user?.accessToken;
+        if (!accessToken) {
+          alert("Google registration failed: missing access token.");
+          return false;
+        }
         let regresponse = await fetch(BACKEND + "/api/register/google/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            token: response.user.accessToken,
+            token: accessToken,
             username: response.user.email.split("@")[0],
           }),
         });
@@ -278,25 +290,25 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem("authTokens", JSON.stringify(token));
           let usernames_data = await getUsernamesData(token);
           setUserNames(usernames_data);
-          navigate("/");
+          return true;
         } else {
           console.error("Backend registration error:", data);
-          alert("Please try registering again: " + (data?.message || ""));
+          alert("Please Try registering again");
+          return false;
         }
-        console.log(response);
       } else {
-        alert("Google registration was cancelled");
+        return false;
       }
     } catch (error) {
-      console.error("Google signup error:", error);
-      alert("Google signup failed: " + error.message);
+      console.log(error);
+      alert("Please Try registering again");
+      return false;
     }
-    return response;
   };
   let contextData = {
     user: user,
     authTokens: authTokens,
-    isAuthenticated, 
+    isAuthenticated,
     loginUser: loginUser,
     registerUser: registerUser,
     logoutUser: logoutUser,
@@ -308,7 +320,7 @@ export const AuthProvider = ({ children }) => {
     loading,
     userNames: userNames,
   };
-  
+
   // useEffect(() => {
 
   //     const token = async (username) => {
